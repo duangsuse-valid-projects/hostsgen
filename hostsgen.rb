@@ -18,14 +18,68 @@
 #   limitations under the License.
 #########################################################################
 
+VERSION = "0.1.0"
+
 # main function
 def start(args)
-    puts "Hello"
+  options = CmdlineOptions.new(args)
+  if !options.silent then
+    print "Hostsgen v" + VERSION + "; "
+    puts case options.operate
+      when 0; "building project..."
+      when 1; "checking hosts data..."
+      when 2; "cleaning..."
+      when 3; "printing help..."
+      when 4; "printing version..."
+    end
+    if options.out then puts "[INFO] Outputting to " + options.out + " ..." end
+    if options.no_comments then puts "[INFO] No comments in output file" end
+    if options.mod_black_list.length != 0 then print "[INFO] No compile: "; puts options.mod_black_list.to_s end
+  end
+  if options.operate == 3 then
+    puts "Usage: ", $0 + " [build/check/clean/help/version] (args)", "args: -q:quiet -o:out [file] -t:no comments -b(an) [mod]"
+  end
+  if options.operate == 4 then puts VERSION end
 end
 
 # commandline arguments structure&parser
+# commandline usage:
+# ruby hostsgen.rb [operate] [args]
+# operate: build(0) check(1) clean(2) help(3) version(4)
+# args: -q: quiet -o: out -t: tidy -b [module]: no compile for module
 class CmdlineOptions
-
+  def initialize(cmdline)
+    @mod_black_list = []
+    @operate = nil
+    @out = nil
+    @silent = false
+    @no_comments = false
+    if cmdline.include? "-q" then @silent = true end
+    if cmdline.include? "-t" then @no_comments = true end
+    if cmdline.include? "-o" then @out = cmdline[(cmdline.index "-o") + 1] end
+    cmdline.each_with_index do |i, s|
+      if i.start_with? "-b" then @mod_black_list.push cmdline[s + 1] end
+    end
+    @operate = case cmdline[0]
+      when "build"; 0
+      when "check"; 1
+      when "clean"; 2
+      when "help"; 3
+      when "version"; 4
+      else 0
+    end
+  end
+  #getter
+  def mod_black_list; return @mod_black_list end
+  def operate; return @operate end
+  def out
+    if !@out.nil?;
+      if File.directory? @out; puts "[ERR] Cannot use dir as output"; exit 1 end
+    end
+    return @out
+  end
+  def silent; return @silent end
+  def no_comments; return @no_comments end
 end
 
 # hostsgen project config structure
