@@ -6,7 +6,7 @@ __hostsgen__ is designed to make _hosts_ projects modular🗄 and writting-frien
 
 ## ⭐️ Start using `hostsgen` 开始使用
 ### Create hostsgen.yml 创建项目配置文件
-`hostsgen.yml` is __project config file for hostsgen.__ Hostsgen uses this file to know what this project is
+`hostsgen.yml` is __project config file for hostsgen.__ Hostsgen uses this file to know what your project is
 
 avaliable fields:
 + __name__ (_string,_ your project name)
@@ -30,8 +30,8 @@ mods:
 ```
 
 ### Configure your module 配置模块
-Create `module dirs` in `project root`. There must be a __"mod.txt"__ in each module dir, which contains module settings.
-For the examples above, dir __foo-mod__, __ads-baidu__ and __google__ should be created.
+Create `module dirs` in `project root`. There must be a __"mod.txt"__ in module dir, which contains module settings.
+For configure above, module dir __foo-mod__, __ads-baidu__ and __google__ should be created.
 mod.txt syntax:
 ```yaml
 #{filename} {rule}
