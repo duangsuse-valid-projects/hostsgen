@@ -19,6 +19,7 @@
 #########################################################################
 
 VERSION = "0.1.0"
+CFG_FILENAME = "hostsgen.yml"
 
 # main function
 def start(args)
@@ -40,6 +41,19 @@ def start(args)
     puts "Usage: ", $0 + " [build/check/clean/help/version] (args)", "args: -q:quiet -o:out [file] -t:no comments -b(an) [mod]"
   end
   if options.operate == 4 then puts VERSION end
+  project_cfg = ProjectConfig.new(options.silent)
+  if !options.silent then
+    print "[INFO] Project '"
+    print project_cfg.name
+    print "' by "
+    puts project_cfg.authors.to_s
+    print "[INFO] Default output: "
+    print project_cfg.out
+    print " , desc: "
+    puts project_cfg.desc
+    print "[INFO] Modules: "
+    puts project_cfg.mods.to_s
+  end
 end
 
 # commandline arguments structure&parser
@@ -74,7 +88,7 @@ class CmdlineOptions
   def operate; return @operate end
   def out
     if !@out.nil?;
-      if File.directory? @out; puts "[ERR] Cannot use dir as output"; exit 1 end
+      if File.directory? @out; puts "[ERR] Cannot use dir as output"; exit 2 end
     end
     return @out
   end
@@ -84,7 +98,23 @@ end
 
 # hostsgen project config structure
 class ProjectConfig
-
+  def initialize(silent)
+    require 'yaml'
+    if not File.exist? CFG_FILENAME; puts "[ERR] Project config does not exists"; exit 1 end
+    cfg = YAML.load_file(CFG_FILENAME)
+    if !silent then puts "[VERBOSE] Parsed YAML:",cfg.inspect end
+    @name = cfg["name"]
+    @desc = cfg["desc"]
+    @out = cfg["out"]
+    @authors = cfg["authors"]
+    @mods = cfg["mods"]
+  end
+  #getter
+  def name; return @name end
+  def desc; return @desc end
+  def out; return @out end
+  def authors; return @authors end
+  def mods; return @mods end
 end
 
 # project modules structure
