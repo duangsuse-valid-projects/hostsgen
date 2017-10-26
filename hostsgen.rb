@@ -20,6 +20,8 @@
 
 VERSION = "0.1.0"
 CFG_FILENAME = "hostsgen.yml"
+# valid hostname may contain ASCII char A-Z, a-z, 0-9 and '.', '-'.
+HOSTNAME_VALID_CHARS = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890-."
 
 # main function
 def start(args)
@@ -38,10 +40,42 @@ def start(args)
     if options.mod_black_list.length != 0 then print "[INFO] No compile: "; puts options.mod_black_list.to_s end
   end
   if options.operate == 3 then
-    puts "Usage: ", $0 + " [build/check/clean/help/version] (args)", "args: -q:quiet -o:out [file] -t:no comments -b(an) [mod]"
+    puts "Usage: ", $0 + " [build/check/clean/help/version] (args)", "args: -q:quiet -o:out [file] -t:no comments -b(an) [mod]"; exit
   end
-  if options.operate == 4 then puts VERSION end
+  if options.operate == 4 then puts VERSION; exit end
   project_cfg = ProjectConfig.new(options.silent)
+  if options.operate == 2 then
+    begin
+      if not options.out.nil? then File.delete options.out end
+      if not project_cfg.out.nil? then File.delete project_cfg.out end
+      rescue
+      # nil.to_s == ''
+      if File.exists? options.out.to_s or File.exists? project_cfg.out.to_s then
+        puts "[WARN] failed to delete some file"
+      end
+    end
+    if not (File.exists? options.out.to_s or File.exists? project_cfg.out.to_s) then
+      puts "[INFO] Cleaned."
+    end
+    exit 0
+  end
+  if options.operate == 1 then
+    if File.exists? options.out.to_s or File.exists? project_cfg.out.to_s then
+      if File.exists? name=options.out.to_s then
+        puts "[CHECK] Checking file " + name
+        f = File.open name
+        Hosts.new(f.read).check
+      else
+        name = project_cfg.out.to_s
+        puts "[CHECK] Checking file " + name
+        f = File.open name
+        Hosts.new(f.read).check
+      end
+    else
+      puts "[ERR] Cannot find any build artifacts"; exit 4
+    end
+    exit 0
+  end
   if !options.silent then
     print "[INFO] Project '"
     print project_cfg.name
@@ -53,6 +87,15 @@ def start(args)
     puts project_cfg.desc
     print "[INFO] Modules: "
     puts project_cfg.mods.to_s
+  end
+  mods = ProjectModules.new(options.silent, project_cfg.mods, options.mod_black_list)
+  print "[COMPILE] Modules: "
+  puts mods.mods.to_s
+  # if String|nil ...
+  if name=options.out then
+    mods.build options.silent, options.no_comments, name
+  else
+    mods.build options.silent, options.no_comments, project_cfg.out
   end
 end
 
@@ -88,6 +131,7 @@ class CmdlineOptions
   def operate; return @operate end
   def out
     if !@out.nil?;
+      if @out.start_with? '-'; puts "[ERR] Output filename should not start with -"; exit 3 end
       if File.directory? @out; puts "[ERR] Cannot use dir as output"; exit 2 end
     end
     return @out
@@ -119,7 +163,23 @@ end
 
 # project modules structure
 class ProjectModules
-
+  def initialize(quiet, mods, ignored)
+    @mods = mods
+    # strip desc in module config
+    mods.each_with_index do |m, i|
+     space_idx = m.index ' '
+     if space_idx.nil? and not quiet then puts "[WARN] No description in mod " + m
+     else @mods[i] = m[0..space_idx - 1] end
+    end
+    @mods = @mods - ignored
+  end
+  def build(quiet, no_comments, out)
+    if not quiet then
+      puts "[COMPILE] Outputting to " + out + (" no comments" if no_comments).to_s
+    end
+  end
+  #getter
+  def mods; return @mods end
 end
 
 # hostsgen module structure&parser
@@ -134,7 +194,10 @@ end
 
 # hosts file structure
 class Hosts
-
+  def initialize(hosts)
+  end
+  def check()
+  end
 end
 
 # lint hosts data

@@ -1,4 +1,4 @@
-# hostsgen Hosts项目管理工具 ![version](https://img.shields.io/badge/version-Unreleased-green.svg?style=flat-square) ![LoC](https://img.shields.io/badge/LoC-100_lines_of_Ruby-e0115f.svg?style=flat-square) ![resloving](https://img.shields.io/badge/resloving-Project_Modules-blue.svg?style=flat-square)
+# hostsgen Hosts项目管理工具 ![version](https://img.shields.io/badge/version-Unreleased-green.svg?style=flat-square) ![LoC](https://img.shields.io/badge/LoC-159_lines_of_Ruby-e0115f.svg?style=flat-square) ![resloving](https://img.shields.io/badge/resloving-Project_Modules_build-blue.svg?style=flat-square)
 📝  Simple&amp;powerful hosts file generator for hosts projects
 
 ## ❓ What can this tool do? 它能做什么?
@@ -8,13 +8,13 @@ __hostsgen__ is designed to make _hosts_ projects modular🗄 and writting-frien
 ### Create hostsgen.yml 创建项目配置文件
 `hostsgen.yml` is __project config file for hostsgen.__ Hostsgen uses this file to know what your project is
 
-avaliable fields:
-+ __name__ (_string,_ your project name)
-+ __desc__ (_string,_ description)
-+ __authors__ (_sequence in a mapping,_ project authors)
-+ __out__ (_string,_ output file path)
+available fields:
++ __name__ (_String,_ your project name)
++ __desc__ (_String,_ description)
++ __authors__ (_String|[String],_ project authors)
++ __out__ (_String,_ output file path)
 
-+ __mods__ (_sequence of string,_ your project root modules)
++ __mods__ (_[String],_ your project root modules)
 
 for example:
 ```yaml
