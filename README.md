@@ -1,4 +1,4 @@
-# hostsgen Hosts项目管理工具 ![version](https://img.shields.io/badge/version-Unreleased-green.svg?style=flat-square) ![LoC](https://img.shields.io/badge/LoC-159_lines_of_Ruby-e0115f.svg?style=flat-square) ![resloving](https://img.shields.io/badge/resloving-Project_Modules_build-blue.svg?style=flat-square)
+# hostsgen Hosts项目管理工具 ![version](https://img.shields.io/badge/version-Unreleased-green.svg?style=flat-square) ![LoC](https://img.shields.io/badge/LoC-338_lines_of_Ruby-e0115f.svg?style=flat-square) ![resloving](https://img.shields.io/badge/resloving-Hosts_Module-blue.svg?style=flat-square)
 📝  Simple&amp;powerful hosts file generator for hosts projects
 
 ## ❓ What can this tool do? 它能做什么?

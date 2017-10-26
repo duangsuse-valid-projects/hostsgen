@@ -20,8 +20,10 @@
 
 VERSION = "0.1.0"
 CFG_FILENAME = "hostsgen.yml"
+MOD_FILENAME = "mod.txt"
 # valid hostname may contain ASCII char A-Z, a-z, 0-9 and '.', '-'.
 HOSTNAME_VALID_CHARS = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890-."
+LOCATION_VALID_CHARS = "123456790.:"
 
 # main function
 def start(args)
@@ -61,15 +63,18 @@ def start(args)
   end
   if options.operate == 1 then
     if File.exists? options.out.to_s or File.exists? project_cfg.out.to_s then
+      hosts = Hosts.new
       if File.exists? name=options.out.to_s then
         puts "[CHECK] Checking file " + name
         f = File.open name
-        Hosts.new(f.read).check
+        hosts.parse(f.read)
+        hosts.check
       else
         name = project_cfg.out.to_s
         puts "[CHECK] Checking file " + name
         f = File.open name
-        Hosts.new(f.read).check
+        hosts.parse(f.read)
+        hosts.check
       end
     else
       puts "[ERR] Cannot find any build artifacts"; exit 4
@@ -177,26 +182,145 @@ class ProjectModules
     if not quiet then
       puts "[COMPILE] Outputting to " + out + (" no comments" if no_comments).to_s
     end
+    gen = Hosts.new
+    @mods.each_with_index do |m, i|
+      puts "[COMPILE] Compiling Module #" + i.to_s + ": " + m if not quiet
+      if File.exist? m + '/' + MOD_FILENAME then
+        f = File.open m + '/' + MOD_FILENAME
+        gen.push HostsModule.new(f.read).compile
+      else puts "[ERR] Cannot find module config"; exit 5 end
+    end
+    puts "[COMPILE] OK, " + gen.logs.length.to_s + " logs generated."
+    gen.check
+    begin
+      (File.new out, 'w').puts gen.to_s
+    rescue
+      puts "[ERR] Cannot write to file!, check your file permission"
+    end
   end
   #getter
   def mods; return @mods end
 end
 
 # hostsgen module structure&parser
+# contains file names, descriptions, generate rules  
 class HostsModule
+  def initialize(cfg)
+    @files = []
+    cfg.lines.each_with_index do |line, i|
+      begin
+        @files.push FileConfig.new line
+      rescue => e
+        puts "[COMPILE] Failed to parse mod config at line " + i.to_s
+        puts "[ERR] " + e.to_s; exit 8
+      end
+    end
+  end
+  def compile()
+    ret = []
+    for f in @files do
+      begin
+        ret.push f.compile
+      rescue => e
+        puts "[COMPILE] Failed to compile file: " + e.to_s; exit 7
+      end
+    end
+    puts if not ARGV.include? '-q'
+    return ret
+  end
+end
 
+# module file
+# fields: filename, description, genrule
+class FileConfig
+  def initialize(line)
+    desc = "(none)"
+    file_ends = line.index ':'
+    if file_ends.nil? then puts "[COMPILE] Cannot find ':' in mod"; exit 6 end
+    if file_ends == 0 then raise "invalid filename" end
+    @file = line[0..file_ends - 1]
+    desc_starts = line.index '('
+    desc_ends = line.index ')'
+    if desc_starts.nil? then puts "[COMPILE] WARN: Cannot find description start" end
+    if desc_starts.nil? then puts "[COMPILE] WARN: Cannot find description end" end
+    if not desc_starts.nil? and desc_ends.nil? then raise "[COMPILE] ERR: Endless description (missing ')')" end
+    if not (desc_starts.nil? or desc_ends.nil?) then  @desc = line[desc_starts + 1..desc_ends -1] end
+    if desc_ends.nil? then
+      @genrule = line[file_ends..line.length]
+    else
+      @genrule = line[desc_ends..line.length]
+    end
+    begin
+      @genrule = GenerateRule.new(@genrule)
+    rescue => e
+      raise "error initializing genrule: " + e.to_s
+    end
+  end
+  # raise a string contains filename, reason
+  def compile()
+    print @file + '..' if not ARGV.include? '-q'
+  end
 end
 
 # generate rule structure
 class GenerateRule
-
+  def initialize(line)
+  end
+  # process a host item using rule
+  def process(hostitem)
+  end
 end
 
 # hosts file structure
+# hosts structure is a (array of HostsItem) and HostsComments
 class Hosts
-  def initialize(hosts)
+  def initialize()
+    @logs = []
   end
+  # parse a String, store data in self
+  def parse(hosts)
+    
+  end
+  # lint hosts data
   def check()
+    lint(self)
+  end
+  # merges self with other
+  def push(other)
+    merge(self, other)
+  end
+  def to_s()
+    return "Unimplemented!!!"
+  end
+  #getter
+  def logs; return @logs end
+end
+
+class HostsItem
+  # valid line should not be started with '#'
+  def initialize(i, line)
+    @line = nil #line number
+    @host = nil #hostname
+    @loc = nil #address
+  end
+  #getter
+  def line; return @line end
+  def host; return @host end
+  def locl; return @loc end
+end
+
+# comments for hosts data
+class HostsComments
+  def initialize()
+    @text = []
+    @at_line = []
+  end
+  def push(line, comment)
+    @text.push comment
+    @at_line.push line
+  end
+  def get_comment(line)
+    return @text[@at_line.index line]
   end
 end
 
