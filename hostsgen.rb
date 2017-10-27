@@ -18,7 +18,7 @@
 #   limitations under the License.
 #########################################################################
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 CFG_FILENAME = "hostsgen.yml"
 MOD_FILENAME = "mod.txt"
 HEAD_FILENAME = "head.txt"
@@ -98,10 +98,11 @@ def start(args)
   puts mods.mods.to_s
   # if String|nil ...
   if name=options.out then
-    mods.build options.silent, options.no_comments, name
+    mods.build options.silent, options.no_comments, name, project_cfg
   else
-    mods.build options.silent, options.no_comments, project_cfg.out
+    mods.build options.silent, options.no_comments, project_cfg.out, project_cfg
   end
+  puts "[COMPILE] OK."
 end
 
 # commandline arguments structure&parser
@@ -178,7 +179,7 @@ class ProjectModules
     end
     @mods = @mods - ignored
   end
-  def build(quiet, no_comments, out)
+  def build(quiet, no_comments, out, cfg)
     if not quiet then
       puts "[COMPILE] Outputting to " + out + (" no comments" if no_comments).to_s
     end
@@ -191,12 +192,18 @@ class ProjectModules
     begin
       file.puts (File.open HEAD_FILENAME).read + "\n"
     rescue
+      puts "[WARN] Head text not found(head.txt)"
+    end
+    begin
+      (file.puts "#Hostsgen project " + cfg.name + " (" + cfg.desc + ") " + "by " + cfg.authors.to_s + "\n") if not ARGV.include? "-t"
+    rescue
+      puts "[WARN] Cannot put project props"
     end
     @mods.each_with_index do |m, i|
       puts "[COMPILE] Compiling Module #" + i.to_s + ": " + m if not quiet
       if File.exist? m + '/' + MOD_FILENAME then
         f = File.open m + '/' + MOD_FILENAME
-        HostsModule.new(f.read).compile m, file
+        HostsModule.new(f.read).compile m, file, cfg.mods[i]
       else puts "[ERR] Cannot find module config"; exit 5 end
     end
   end
@@ -218,8 +225,8 @@ class HostsModule
       end
     end
   end
-  def compile(m, file)
-    file.puts "#Module: " + m + "\n" if not ARGV.include? "-t"
+  def compile(m, file, desc)
+    file.puts "#Module: " + m + " : " + desc + "\n" if not ARGV.include? "-t"
     for f in @files do
       begin
         l = f.compile m, file
@@ -269,7 +276,7 @@ class FileConfig
     hosts.logs.each_with_index do |l, i|
       hosts.logs[i] = @genrule.process l
     end
-    f.puts "#FILE: " + @file + "\n" if not ARGV.include? '-t'
+    f.puts "#FILE: " + @file + " : " + @desc + "\n" if not ARGV.include? '-t'
     f.puts hosts
     return hosts.logs.length 
     f.puts "#FILE: " + @file + "\n" if not ARGV.include? '-t'
