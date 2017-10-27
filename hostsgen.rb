@@ -219,16 +219,16 @@ class HostsModule
     end
   end
   def compile(m, file)
-    file.puts "#mod: " + m + "\n" if not ARGV.include? "-t"
+    file.puts "#Module: " + m + "\n" if not ARGV.include? "-t"
     for f in @files do
       begin
         l = f.compile m, file
       rescue => e
         puts "[COMPILE] Failed to compile file: " + e.to_s; exit 7
       end
-        file.puts "#endmod: " + m + "\n" if not ARGV.include? "-t"
         puts " OK, " + l.to_s + " logs generated." if not ARGV.include? "-q"
     end
+    file.puts "#endModule: " + m + "\n" if not ARGV.include? "-t"
   end
 end
 
