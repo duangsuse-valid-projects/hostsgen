@@ -21,6 +21,7 @@
 VERSION = "0.1.0"
 CFG_FILENAME = "hostsgen.yml"
 MOD_FILENAME = "mod.txt"
+HEAD_FILENAME = "head.txt"
 # valid hostname may contain ASCII char A-Z, a-z, 0-9 and '.', '-'.
 HOSTNAME_VALID_CHARS = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890-."
 
@@ -187,6 +188,10 @@ class ProjectModules
     rescue => e
       puts "[ERR] Cannot write to file!, check your file permission (" + e.to_s + ")"
     end
+    begin
+      file.puts (File.open HEAD_FILENAME).read + "\n"
+    rescue
+    end
     @mods.each_with_index do |m, i|
       puts "[COMPILE] Compiling Module #" + i.to_s + ": " + m if not quiet
       if File.exist? m + '/' + MOD_FILENAME then
@@ -214,14 +219,14 @@ class HostsModule
     end
   end
   def compile(m, file)
+    file.puts "#mod: " + m + "\n" if not ARGV.include? "-t"
     for f in @files do
       begin
-        file.puts "#mod: " + m + "\n" if not ARGV.include? "-t"
         l = f.compile m, file
-        file.puts "#endmod: " + m + "\n" if not ARGV.include? "-t"
       rescue => e
         puts "[COMPILE] Failed to compile file: " + e.to_s; exit 7
       end
+        file.puts "#endmod: " + m + "\n" if not ARGV.include? "-t"
         puts " OK, " + l.to_s + " logs generated." if not ARGV.include? "-q"
     end
   end
