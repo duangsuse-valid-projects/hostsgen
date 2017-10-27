@@ -23,7 +23,6 @@ CFG_FILENAME = "hostsgen.yml"
 MOD_FILENAME = "mod.txt"
 # valid hostname may contain ASCII char A-Z, a-z, 0-9 and '.', '-'.
 HOSTNAME_VALID_CHARS = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890-."
-LOCATION_VALID_CHARS = "123456790.:"
 
 # main function
 def start(args)
@@ -132,8 +131,10 @@ class CmdlineOptions
     end
   end
   #getter
-  def mod_black_list; return @mod_black_list end
-  def operate; return @operate end
+  attr_reader :mod_black_list
+  attr_reader :operate
+  attr_reader :silent
+  attr_reader :no_comments
   def out
     if !@out.nil?;
       if @out.start_with? '-'; puts "[ERR] Output filename should not start with -"; exit 3 end
@@ -141,8 +142,6 @@ class CmdlineOptions
     end
     return @out
   end
-  def silent; return @silent end
-  def no_comments; return @no_comments end
 end
 
 # hostsgen project config structure
@@ -159,11 +158,11 @@ class ProjectConfig
     @mods = cfg["mods"]
   end
   #getter
-  def name; return @name end
-  def desc; return @desc end
-  def out; return @out end
-  def authors; return @authors end
-  def mods; return @mods end
+  attr_reader :name
+  attr_reader :desc
+  attr_reader :out
+  attr_reader :authors
+  attr_reader :mods
 end
 
 # project modules structure
@@ -183,23 +182,21 @@ class ProjectModules
       puts "[COMPILE] Outputting to " + out + (" no comments" if no_comments).to_s
     end
     gen = Hosts.new
+    begin
+      file = File.new out, 'w'
+    rescue => e
+      puts "[ERR] Cannot write to file!, check your file permission (" + e.to_s + ")"
+    end
     @mods.each_with_index do |m, i|
       puts "[COMPILE] Compiling Module #" + i.to_s + ": " + m if not quiet
       if File.exist? m + '/' + MOD_FILENAME then
         f = File.open m + '/' + MOD_FILENAME
-        gen.push HostsModule.new(f.read).compile
+        HostsModule.new(f.read).compile m, file
       else puts "[ERR] Cannot find module config"; exit 5 end
-    end
-    puts "[COMPILE] OK, " + gen.logs.length.to_s + " logs generated."
-    gen.check
-    begin
-      (File.new out, 'w').puts gen.to_s
-    rescue
-      puts "[ERR] Cannot write to file!, check your file permission"
     end
   end
   #getter
-  def mods; return @mods end
+  attr_reader :mods
 end
 
 # hostsgen module structure&parser
@@ -216,17 +213,17 @@ class HostsModule
       end
     end
   end
-  def compile()
-    ret = []
+  def compile(m, file)
     for f in @files do
       begin
-        ret.push f.compile
+        file.puts "#mod: " + m + "\n" if not ARGV.include? "-t"
+        l = f.compile m, file
+        file.puts "#endmod: " + m + "\n" if not ARGV.include? "-t"
       rescue => e
         puts "[COMPILE] Failed to compile file: " + e.to_s; exit 7
       end
+        puts " OK, " + l.to_s + " logs generated." if not ARGV.include? "-q"
     end
-    puts if not ARGV.include? '-q'
-    return ret
   end
 end
 
@@ -246,28 +243,74 @@ class FileConfig
     if not desc_starts.nil? and desc_ends.nil? then raise "[COMPILE] ERR: Endless description (missing ')')" end
     if not (desc_starts.nil? or desc_ends.nil?) then  @desc = line[desc_starts + 1..desc_ends -1] end
     if desc_ends.nil? then
-      @genrule = line[file_ends..line.length]
+      @genrule = line[file_ends + 1..line.length]
     else
-      @genrule = line[desc_ends..line.length]
+      @genrule = line[desc_ends + 1..line.length]
     end
     begin
-      @genrule = GenerateRule.new(@genrule)
+      @genrule = GenerateRule.new(@genrule.strip)
     rescue => e
       raise "error initializing genrule: " + e.to_s
     end
   end
   # raise a string contains filename, reason
-  def compile()
+  # return Hosts data
+  def compile(m, f)
     print @file + '..' if not ARGV.include? '-q'
+    inf = File.open(m + '/' + @file)
+    content = inf.read
+    hosts = Hosts.new
+    hosts.parse content
+    hosts.logs.each_with_index do |l, i|
+      hosts.logs[i] = @genrule.process l
+    end
+    f.puts "#FILE: " + @file + "\n" if not ARGV.include? '-t'
+    f.puts hosts
+    return hosts.logs.length 
+    f.puts "#FILE: " + @file + "\n" if not ARGV.include? '-t'
   end
 end
 
 # generate rule structure
 class GenerateRule
   def initialize(line)
+    line = line.split ' '
+    @host = line[1]
+    @loc = line[0]
+    raise "too many or few gen args in config" if not line.length == 2
+    @host_insert_idx = @host.index "{HOST}"
+    @host = @host.tr "{HOST}", "" #blank String is nil in Ruby
+    @loc_insert_idx = @loc.index "{IP}"
+    @loc = @loc.tr "{IP}", "" 
+    @put_in_host = nil
+    if a=@host_insert_idx.nil? or @loc_insert_idx.nil? then
+      @put_in_host = !a
+      raise "must be one format argument valid ({IP} {HOST}) at least" if a and @loc_insert_idx.nil?
+    end
   end
   # process a host item using rule
-  def process(hostitem)
+  # return processed item
+  def process(hostsitem)
+    item = HostsItem.new nil, nil, nil
+    if not @put_in_host.nil? then
+      if @put_in_host then
+        tmp = @host.dup
+        tmp.insert @host_insert_idx, hostsitem.loc
+        item.set tmp, @loc, hostsitem.line
+      else
+        tmp = @loc.dup
+        tmp.insert @loc_insert_idx, hostsitem.loc
+        item.set @host, tmp, hostsitem.line
+      end
+      return item
+    else
+      tmp_host = @host.dup
+      tmp_host.insert @host_insert_idx, hostsitem.host
+      tmp_loc = @loc.dup
+      tmp_loc.insert @loc_insert_idx, hostsitem.loc
+      item.set tmp_host, tmp_loc, hostsitem.line
+      return item
+    end
   end
 end
 
@@ -278,60 +321,75 @@ class Hosts
     @logs = []
   end
   # parse a String, store data in self
+  # valid log should not be started with #
   def parse(hosts)
-    
+    hosts.lines.each_with_index do |l, i|
+      l = l.strip
+      if l[0] == '#' then ; next end
+      if l == "" then ; next end
+      l = l.split ' '
+      #raise "more or less than 2 col at line " + i.to_s + " (hostsgen does not trim non-line comments)(plese use space to split only)" if not l.length == 2
+      host = l[1]
+      loc = l[0]
+      @logs.push (HostsItem.new i, host, loc)
+    end
   end
   # lint hosts data
-  def check()
-    lint(self)
+  def check
+    lint(@logs)
   end
   # merges self with other
   def push(other)
-    merge(self, other)
+    push_logs other
   end
   def to_s()
-    return "Unimplemented!!!"
+    r = String.new
+    for l in @logs do
+      r += l.to_s + "\n"
+    end
+    return r
   end
-  #getter
-  def logs; return @logs end
+  def push_logs(o); @logs.push o end
+  attr_reader :logs
 end
 
 class HostsItem
-  # valid line should not be started with '#'
-  def initialize(i, line)
-    @line = nil #line number
-    @host = nil #hostname
-    @loc = nil #address
+  def initialize(l, host, loc)
+    @line = l #line number
+    @host = host #hostname
+    @loc = loc #address
+  end
+  def to_s()
+    #if @loc.nil? or @host.nil? then return @loc.to_s||@host.to_s end 
+    return @loc + ' ' + @host
   end
   #getter
-  def line; return @line end
-  def host; return @host end
-  def locl; return @loc end
-end
-
-# comments for hosts data
-class HostsComments
-  def initialize()
-    @text = []
-    @at_line = []
-  end
-  def push(line, comment)
-    @text.push comment
-    @at_line.push line
-  end
-  def get_comment(line)
-    return @text[@at_line.index line]
+  attr_reader :line
+  attr_reader :host
+  attr_reader :loc
+  #setter
+  def set(h,i,l)
+    @line = l
+    @host = h
+    @loc = i
   end
 end
 
 # lint hosts data
-def lint(hosts)
-
-end
-
-# merge hosts data
-def merge(a, b)
-
+# LOC rules (only IPv4 is supported in this file):
+# if not l.start_with? "::" then l.assert_in_pattern [0-255].[0-255].[0-255] end
+# NAME rules:
+# name.assert_only_include HOSTNAME_VALID_CHARS 
+def lint(logs)
+  require 'ipaddr'
+  logs.each_with_index do |l, i|
+    hostname_not_valid = false
+    puts "[LINT] WARN: log #" + i.to_s + " may not have a valid IP Address (" + l.loc + ")" if !(IPAddr.new(l.loc) rescue false)
+    for c in l.host.to_s.chars do
+      if not HOSTNAME_VALID_CHARS.include? c then hostname_not_valid = true; cha = c end
+    end
+    puts "[LINT] WARN: log #" + i.to_s + " may not have a valid hostname (invalid char '" + cha + "')" if hostname_not_valid
+  end
 end
 
 
