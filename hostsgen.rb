@@ -18,10 +18,11 @@
 #   limitations under the License.
 #########################################################################
 
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 CFG_FILENAME = "hostsgen.yml"
 MOD_FILENAME = "mod.txt"
-HEAD_FILENAME = "head.txt"
+HEAD_FILENAME = ENV['HOSTSGEN_HEAD_TEXT']||"head.txt"
+OUTPUT_EVAL = ENV['HOSTSGEN_OUTPUT_EVAL']||"@loc + ' ' + @host"
 # valid hostname may contain ASCII char A-Z, a-z, 0-9 and '.', '-'.
 HOSTNAME_VALID_CHARS = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890-."
 
@@ -199,7 +200,7 @@ class ProjectModules
     begin
       file.puts (File.open HEAD_FILENAME).read + "\n"
     rescue
-      puts "[WARN] Head text not found(head.txt)"
+      puts "[WARN] Head text not found: " + HEAD_FILENAME
     end
     begin
       (file.puts "#Hostsgen project " + cfg.name + " (" + cfg.desc + ") " + "by " + cfg.authors.to_s + "\n") if not ARGV.include? "-t"
@@ -379,8 +380,8 @@ class HostsItem
     @loc = loc #address
   end
   def to_s()
-    #if @loc.nil? or @host.nil? then return @loc.to_s||@host.to_s end 
-    return @loc + ' ' + @host
+    #if @loc.nil? or @host.nil? then return @loc.to_s||@host.to_s end
+    return eval OUTPUT_EVAL
   end
   #getter
   attr_reader :line
